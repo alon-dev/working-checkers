@@ -1,186 +1,153 @@
-from demo import *
 import numpy as np
-import itertools
-from time import time
 
-def is_terminal(depth, board, length):
-    if depth <= 0 or length == 0:
-        return True
-    return False
-def can_eat(game_board, color, i, j):
-    eatings = []
-    turn = "player" if (color == "white") else "computer"
-    candiate_eatings = [(i+1,j+1), (i+1,j-1), (i-1,j+1), (i-1,j-1)]
-                    # eating has mandatory priority
-    for eat in candiate_eatings:
-        if game_board[i][j].canEat(eat[0], eat[1], game_board, turn, game_board[i][j].isQueen):
-            eatings.append((eat[0]-i+eat[0], eat[1]-j+eat[1]))
-                    # if no eating lets check regular move
+class Model:
+    def __init__(self, board, depth, weights):
+        self.board = self.gate_keeper(board)
+        self.depth = depth
+        self.weights = weights
     
-    return len(eatings) != 0
+    #The last line of defence
+    def gate_keeper(self, board):
+        new_board = np.zeros((8,8), dtype=np.int32)
+        for i in range(8):
+            for j in range(8):
+                piece = board[i][j]
+                if piece.color == 'white':
+                    if piece.isQueen:
+                        new_board[i][j] = -2
+                    else:
+                        new_board[i][j] = -1
+                elif piece == 'black':
+                    if piece.isQueen:
+                        new_board[i][j] = 2
+                    else:
+                        new_board[i][j] = 1
+        return new_board
 
-def make_move(board, move):
-    piece_eaten = None
-    start = move[0][0]
-    end = move[0][1]
-    middle = ((start[0] + end[0])//2, (start[1] + end[1])//2)
-    is_eat = move[1]
-
-    if is_eat:
-        piece_eaten = board[middle[0]][middle[1]]
-        board[middle[0]][middle[1]] = None
-    
-    board[end[0]][end[1]] = board[start[0]][start[1]]
-    board[start[0]][start[1]] = None
-    return piece_eaten
-
-def reverse_move(board, move, piece):
-    start = move[0][0]
-    end = move[0][1]
-    middle = ((start[0] + end[0])//2, (start[1] + end[1])//2)
-    temp = board[start[0]][start[1]]
-    board[start[0]][start[1]] = board[end[0]][end[1]]
-    board[end[0]][end[1]] = temp
-    if move[1]:
-        board[middle[0]][middle[1]] = piece
+    def is_eat(self, start, end):
+        return abs(start[0] - end[0]) != 1
+            
+    def make_move(self, start, end):
+        temp = self.board[start[0]][start[1]]
+        if end[0] == 7 and temp == 1:
+            temp = 2
+        if end[0] == 0 and temp == -1:
+            temp = 3
+        if self.is_eat(start,end):
+            middle = ((start[0]+end[0])//2, (start[1]+end[1])//2)
+            self.board[middle[0]][middle[1]] == None
         
+        self.board[end[0]][end[1]] = temp
+        self.board[start[0]][start[1]] = None
+        
+    def reverse_move(self, start, end):
+        temp = self.board[end[0]][end[1]]
+        middle = ((start[0]+end[0])//2, (start[1]+end[1])//2)
 
-def give_score(board, length, maximizingPlayer, weights_arr):
-    if length == 0:
-        if maximizingPlayer:
-            return float('inf')
-        return float('-inf')
-    weights_arr = weights_arr
-    white_pieces = []
-    black_pieces = []
-    for i in range(8):
-        for j in range(8):
-            if board[i][j]:
-                if board[i][j].color == "white":
-                    white_pieces.append(board[i][j])
+        if self.is_eat(start,end):
+            self.board[middle[0]][middle[1]] = temp
+        self.board[start[0]][start[1]] = temp
+        self.board[end[0]][end[1]] = None
+        
+            
+    def score(self):
+        piece
+        
+    def all_possible_for_square(self, start_square, is_eaten):
+        all_possible = []
+        dir = 1
+        if self.board[start_square[0][start_square[1]]] < 0:
+            dir = -1
+        for i in [-1, 1]:
+            if start_square[0] + i <= 7 and start_square[0] + i >= 0 and start_square[1] + dir <= 7 and start_square[1] + dir >= 0:
+                if not is_eaten and self.board[start_square[0] + i][start_square[1] + dir] == 0:
+                    all_possible.append((start_square[0] + i, start_square[1] + dir))
+                elif self.board[start_square[0] + i][start_square[1] + dir] != self.board[start_square[0][start_square[1]]]:
+                    if start_square[0] + i * 2 <= 7 and start_square[0] + i * 2 >= 0 and start_square[1] + dir * 2 <= 7 and start_square[1] + dir * 2 >= 0:
+                        if self.board[start_square[0] + i * 2][start_square[1] + dir * 2] == 0:
+                            if not is_eaten:
+                                is_eaten = True
+                                all_possible = []
+                            all_possible.append((start_square[0] + i * 2, start_square[1] + dir * 2))
+            if abs(self.board[start_square[0][start_square[1]]]) == 2:
+                dir *= -1
+                if not is_eaten and self.board[start_square[0] + i][start_square[1] + dir] == 0:
+                    all_possible.append((start_square[0] + i, start_square[1] + dir))
+                elif self.board[start_square[0] + i][start_square[1] + dir] != self.board[start_square[0][start_square[1]]]:
+                    if start_square[0] + i * 2 <= 7 and start_square[0] + i * 2 >= 0 and start_square[1] + dir * 2 <= 7 and start_square[1] + dir * 2 >= 0:
+                        if self.board[start_square[0] + i * 2][start_square[1] + dir * 2] == 0:
+                            if not is_eaten:
+                                is_eaten = True
+                                all_possible = []
+                            all_possible.append((start_square[0] + i * 2, start_square[1] + dir * 2))
+                dir *= -1
+
+        return all_possible, is_eaten
+                 
+            
+    def all_possible(self, is_black):
+        moves = []
+        eatings = []
+        if is_black:
+            was_eat = False
+            for i in range(8):
+                for j in range(8):
+                    if self.board[i,j] > 0:
+                        square_moves = self.all_possible_for_square(self.board[i,j], was_eat)
+                        if len(square_moves[0]) > 0:
+                            is_eat = square_moves[1]
+                            if is_eat:
+                                was_eat = is_eat
+                                for move in square_moves[0]:
+                                    eatings.append(move)
+                            else:
+                                for move in square_moves[0]:
+                                    moves.append(move)
+        else:
+            was_eat = False
+            for i in range(8):
+                for j in range(8):
+                    if self.board[i,j] < 0:
+                        square_moves = self.all_possible_for_square(self.board[i,j], was_eat)
+                        if len(square_moves[0]) > 0:
+                            is_eat = square_moves[1]
+                            if is_eat:
+                                was_eat = is_eat
+                                for move in square_moves[0]:
+                                    eatings.append(move)
+                            else:
+                                for move in square_moves[0]:
+                                    moves.append(move) 
+        
+        #Evil Laughter
+        if len(eatings) > 0:
+            return eatings, True
+        else:
+            return moves, False
+            
+    def is_terminal(self, length):
+        return length == 0
+                
+    def minimax(self, depth, is_maximizing):
+        possible_moves, are_eatings = self.all_possible(is_maximizing)   
+        if self.is_terminal(len(possible_moves)):
+            return self.score(possible_moves)
+
+        
+        if is_maximizing:
+            best_score = float('-inf')
+            best_move = None
+            for move in possible_moves:
+                self.move(move[0], move[1])
+                if len(self.all_possible_for_square(move[0], True)[0]) == 0:
+                    score = self.minimax(depth - 1, False)
                 else:
-                    black_pieces.append(board[i][j])
-    score = 0.0
-    white_queens = []
-    black_queens = []
-    white_attacking = []
-    white_defending = []
-    black_attacking = []
-    black_defending = []
-    for piece in white_pieces:
-        if piece.row < 4:
-            white_attacking.append(piece)
-        else:
-            white_defending.append(piece)
-        if piece.isQueen:
-            white_queens.append(piece)
-    for piece in black_pieces:
-        if piece.row >= 4:
-            black_attacking.append(piece)
-        else:
-            black_defending.append(piece)
-        if piece.isQueen:
-            black_queens.append(piece)
-    score += weights_arr[0] * len(white_queens)
-    score += weights_arr[1] * len(white_defending)
-    score += weights_arr[2] * len(white_attacking)
-    
-    score -= weights_arr[0] * len(black_queens)
-    score -= weights_arr[1] * len(black_defending)
-    score -= weights_arr[2] * len(black_attacking)
-
-    return score
-def minimax(board, depth, maximizingPlayer, hungry_piece, weights_arr):
-    best_move = None
-    
-    color = "white"
-    if maximizingPlayer is False:
-        color = "black"
-    
-    possible_moves = all_options(board, color)
-    if hungry_piece is not None:
-        possible_eatings_with_piece = [move for move in possible_moves if move[0][0] == hungry_piece]
-        if len(possible_eatings_with_piece) > 0:
-            possible_moves = possible_eatings_with_piece
-    
-    if is_terminal(depth, board, len(possible_moves)):
-        return (give_score(board, len(possible_moves), maximizingPlayer, weights_arr), None)
-    if maximizingPlayer:
-        max_score = float('-inf')
-        for move in possible_moves:
-            piece = make_move(board, move)
-            if move[1] == 0:
-                score = minimax(board, depth-1, maximizingPlayer, move[0][1], weights_arr)[0]
-            else:
-                score = minimax(board, depth-1, not maximizingPlayer, None, weights_arr)[0]
-            #if hungry_piece is none, then the last move was not an eating.
-            reverse_move(board, move, piece)
-            if score > max_score:
-                max_score = score
-                best_move = tuple(move[0][0]) + tuple(move[0][1])        
-        return (max_score, best_move)
-    else:
-        min_score = float('inf')
-        for move in possible_moves:
-            piece = make_move(board, move)
-            if move[1] == 0:
-                score = minimax(board, depth-1, maximizingPlayer, move[0][1], weights_arr)[0]
-            else:
-                score = minimax(board, depth-1, not maximizingPlayer, None, weights_arr)[0]
-            #if hungry_piece is none, then the last move was not an eating.
-            reverse_move(board, move, piece)
-            if score < min_score:
-                min_score = score
-                best_move = tuple(move[0][0]) + tuple(move[0][1])
-        return (min_score, best_move)
-
-
-def all_options(game_board, color):
-    placings = {}
-    eatings = {}
-    turn = "player" if (color == "white") else "computer"
-
-    for i in range(len(game_board)):
-        for j in range(len(game_board[i])):
-            if game_board[i][j] != None and game_board[i][j].color == color:
-                candiate_eatings = [(i+1,j+1), (i+1,j-1), (i-1,j+1), (i-1,j-1)]
-                # eating has mandatory priority
-                for eat in candiate_eatings:
-                    if game_board[i][j].canEat(eat[0], eat[1], game_board, turn, game_board[i][j].isQueen):
-                        if ((i,j) not in eatings):
-                                eatings[(i,j)] = []
-                        eatings[(i,j)].append((eat[0]-i+eat[0], eat[1]-j+eat[1]))
-                # if no eating lets check regular move
-                if (len(eatings) == 0):
-                    options = game_board[i][j].possible_placing(game_board)
-                    if (len(options) > 0):
-                        for k in range(len(options)):
-                            placings[(i,j)]  = options
-
-    if (len(eatings) > 0):
-        array_to_use = (eatings, 0)
-    else:
-        array_to_use = (placings, 1)
-
-    all_options = []
-    for option in array_to_use[0]:
-        for possible_move in array_to_use[0][option]:
-            all_options.append(((option, possible_move),array_to_use[1]))
-    return all_options
-
-
-
+                    score = self.minimax(depth - 1, True)
 
 def fishkel_bot(game_board, color, count, timeout, hungry_piece, weights_arr=[10,5,7]):
-    print("fishkel gay: " + color)
-    if color == "white":
-        answer = minimax(game_board, 2, True, hungry_piece,weights_arr)
-        print(answer[0])
-        return answer[1]
+    model = Model(game_board, 4, weights_arr)
+    if color == 'white':
+        move = model.minimax(False)
     else:
-        answer = minimax(game_board, 2, False, hungry_piece,weights_arr)
-        print(answer[0])
-        return answer[1]
-
-
-
+        move = model.minimax(True)
+    return move
