@@ -1,9 +1,9 @@
 import numpy as np
+from numpy.core.shape_base import block
 
 class Model:
-    def __init__(self, board, depth, weights):
+    def __init__(self, board, weights):
         self.board = self.gate_keeper(board)
-        self.depth = depth
         self.weights = weights
     
     #The last line of defence
@@ -12,22 +12,24 @@ class Model:
         for i in range(8):
             for j in range(8):
                 piece = board[i][j]
-                if piece.color == 'white':
-                    if piece.isQueen:
-                        new_board[i][j] = -2
-                    else:
-                        new_board[i][j] = -1
-                elif piece == 'black':
-                    if piece.isQueen:
-                        new_board[i][j] = 2
-                    else:
-                        new_board[i][j] = 1
+                if piece is not None:
+                    if piece.color == 'white':
+                        if piece.isQueen:
+                            new_board[i][j] = -2
+                        else:
+                            new_board[i][j] = -1
+                    elif piece == 'black':
+                        if piece.isQueen:
+                            new_board[i][j] = 2
+                        else:
+                            new_board[i][j] = 1
         return new_board
 
     def is_eat(self, start, end):
         return abs(start[0] - end[0]) != 1
             
     def make_move(self, start, end):
+        is_queen = abs(self.board[start[0][start[1]]]) == 2
         temp = self.board[start[0]][start[1]]
         if end[0] == 7 and temp == 1:
             temp = 2
@@ -39,19 +41,48 @@ class Model:
         
         self.board[end[0]][end[1]] = temp
         self.board[start[0]][start[1]] = None
+        return is_queen
         
-    def reverse_move(self, start, end):
+    def reverse_move(self, start, end, is_queen):
         temp = self.board[end[0]][end[1]]
         middle = ((start[0]+end[0])//2, (start[1]+end[1])//2)
 
         if self.is_eat(start,end):
             self.board[middle[0]][middle[1]] = temp
+        if is_queen:
+            self.board[start[0]][start[1]] = temp * 2
         self.board[start[0]][start[1]] = temp
         self.board[end[0]][end[1]] = None
         
             
     def score(self):
-        piece
+        white_queens = []
+        black_queens = []
+        white_attacking = []
+        black_attacking = []
+        black_defending = []
+        white_defending = []
+        for i in range(8):
+            for j in range(8):
+                piece = self.board[i,j]
+                if piece == -2:
+                    white_queens.append(-1)
+                elif piece == 2:
+                    black_queens.append(1)
+                if piece < 0:
+                    if i >= 4:
+                        white_defending.append(-1)
+                    else:
+                        white_attacking.append(-1)
+                elif piece > 0:
+                    if i < 4:
+                        black_defending.append(-1)
+                    else:
+                        black_attacking.append(-1)
+        black_score = (len(black_queens) * self.weights[0]) + (len(black_defending) * self.weights[1]) + (len(black_attacking) * self.weights[2])
+        white_score = (len(white_queens) * self.weights[0]) + (len(white_defending) * self.weights[1]) + (len(white_attacking) * self.weights[2])
+        return black_score - white_score
+                    
         
     def all_possible_for_square(self, start_square, is_eaten):
         all_possible = []
@@ -128,26 +159,58 @@ class Model:
     def is_terminal(self, length):
         return length == 0
                 
-    def minimax(self, depth, is_maximizing):
-        possible_moves, are_eatings = self.all_possible(is_maximizing)   
+    def minimax(self, depth, is_maximizing, possible_moves, alpha = float('-inf'), beta = float('inf')):
+        if possible_moves == None:
+            possible_moves, are_eatings = self.all_possible(is_maximizing)   
+        are_eatings = True
         if self.is_terminal(len(possible_moves)):
-            return self.score(possible_moves)
+            return (self.score(), None)
 
         
         if is_maximizing:
             best_score = float('-inf')
             best_move = None
             for move in possible_moves:
-                self.move(move[0], move[1])
-                if len(self.all_possible_for_square(move[0], True)[0]) == 0:
-                    score = self.minimax(depth - 1, False)
+                is_queen = self.move(move[0], move[1])
+                if are_eatings:
+                    possible_for_square = len(self.all_possible_for_square(move[1], True)[0])
+                if are_eatings and len(possible_for_square) != 0:
+                    score = self.minimax(depth - 1, False, possible_for_square, alpha, beta)[0]
                 else:
-                    score = self.minimax(depth - 1, True)
+                    score = self.minimax(depth - 1, True, None, alpha, beta)[0]
+                self.reverse_move(move[0], move[1], is_queen)
+                if score > best_score:
+                    best_score = score
+                    best_move = move
+                    alpha = score
+                    if alpha > beta:
+                        break
+        else:
+            best_score = float('inf')
+            best_move = None
+            for move in possible_moves:
+                is_queen = self.move(move[0], move[1])
+                if are_eatings:
+                    possible_for_square = len(self.all_possible_for_square(move[1], True)[0])
+                if are_eatings and len(possible_for_square) != 0:
+                    score = self.minimax(depth - 1, False, possible_for_square, alpha, beta)[0]
+                else:
+                    score = self.minimax(depth - 1, True, None, alpha, beta)[0]
+                self.reverse_move(move[0], move[1], is_queen)
+                if score < best_score:
+                    best_score = score
+                    best_move = move
+                    beta = score
+                    if alpha > beta:
+                        break
+
+        return (best_score, best_move)
+        
 
 def fishkel_bot(game_board, color, count, timeout, hungry_piece, weights_arr=[10,5,7]):
-    model = Model(game_board, 4, weights_arr)
+    model = Model(game_board, weights_arr)
     if color == 'white':
-        move = model.minimax(False)
+        move = model.minimax(4, False, None)[1]
     else:
-        move = model.minimax(True)
+        move = model.minimax(4, True, None)[1]
     return move
