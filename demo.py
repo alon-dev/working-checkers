@@ -8,15 +8,16 @@ import importlib
 import sys
 from contextlib import suppress
 import gc
-
+from players import Players
 from PIL import Image, ImageTk
-
+from datetime import datetime
 import random
-
+from results import Results
 from copy import deepcopy
 
+
 class Consts:
-    TIMEOUT = 1
+    TIMEOUT = 2
     THINK = 30
     DRAW = "DRAW"
     MAX_MOVES = 100
@@ -30,35 +31,6 @@ class WidgetPH:
         self.row = row
         self.col = col
 
-class Players:
-    player1=None
-    player2=None
-    base1=None
-    base2=None
-    @staticmethod
-    def load(file1, file2):
-        Players.base1 = os.path.splitext(file1)[0]
-        Players.base2 = os.path.splitext(file2)[0]
-        try:
-                mod1 = importlib.import_module(Players.base1)
-                mod2 = importlib.import_module(Players.base2)
-                Players.player1 = getattr(mod1, Players.base1)
-                Players.player2 = getattr(mod2, Players.base2)
-#                result = method_to_call(5)
-        except (RuntimeError, TypeError, NameError,Exception):
-                print(NameError) 
-                return False
-        
-        return True
-
-
-    def find_all(directory):
-        sys.path.insert(0, directory)
-        counter = 0
-        cands = []
-        for file in os.listdir(directory):
-            cands.append(file)
-        return cands       
 
 class Board_2players():
     def __init__(self, master, game, player, computer):
@@ -310,7 +282,7 @@ class gamePiece():
                     if board[row-1][col-1] == None:
                         return True
 
-            if isQueen and row + 1 < 8:
+            if isQueen and row + 1 < 8 and row > self.row:
                 if col-1 == self.col and col+1 < 8:
                     if board[row+1][col+1] == None:
                         return True
@@ -330,7 +302,7 @@ class gamePiece():
                     if board[row + 1][col - 1] == None:
                         return True
 
-            if isQueen and row - 1 >= 0:
+            if isQueen and row - 1 >= 0 and row < self.row:
                 if col-1 == self.col and col+1 < 8:
                     if board[row-1][col+1] == None:
                         return True
@@ -402,11 +374,12 @@ class Game_2players():
         for i in range(0, 3, 1):    # filling first 3 rows with black pieces
             for j in range(0, 8, 1):
                 if (i ==1 and j == 5):
-                       temp.append(gamePiece(1, 5, False, self.player))
+#                       temp.append(gamePiece(1, 5, True, self.player))
+                       temp.append(None)
                        continue
                 if i % 2 == 0:
                     if (i == 2 and j in(2,4)):
-                        temp.append(gamePiece(i, j, False, computer_color))
+                        temp.append(gamePiece(i, j, True, computer_color))
                     elif j % 2 == 0:
 #                        temp.append(gamePiece(i, j, False, computer_color))
                          temp.append(None)
@@ -414,7 +387,7 @@ class Game_2players():
                         temp.append(None)
                 else:
                     if (i == 1 and j == 3):
-                        temp.append(gamePiece(i, j, False, computer_color))
+                        temp.append(gamePiece(i, j, True, computer_color))
                     elif j % 2 == 1:
 #                        temp.append(gamePiece(i, j, False, computer_color))
                          temp.append(None)
@@ -425,14 +398,19 @@ class Game_2players():
 
         for i in range(3, 4, 1):     # filling two middle rows with "NONE"
             for j in range(0, 8, 1):
-                temp.append(None)
+                if (j == 5):
+                    temp.append(gamePiece(i, j, False, self.player))
+                else:
+                    temp.append(None)
             gameBoard.append(temp)
             temp = []
 
         for i in range(4, 8, 1):       # filling last 3 rows with white pieces
             for j in range(0, 8, 1):
                 if i % 2 == 1:
-                    if j % 2 == 1:
+                    if (i == 5 and j == 7):
+                        temp.append(None)
+                    elif j % 2 == 1:
                         temp.append(gamePiece(i, j, False, self.player))
                     else:
                         temp.append(None)
@@ -495,7 +473,7 @@ class Game_2players():
     def too_long_turn(self):
         winner = self.computer if (self.view.current_turn == self.player) else self.player
         self.winner = winner
-        print("Too long turn for  " + self.view.current_turn + ". "+ winner + " is the winner")
+        print("Too long turn for  " + str(self.view.current_turn) + ". "+ winner + " is the winner")
         self.view.endGame()
 
     def update_options_for_location(self, i,j, game_board, color, turn, placings, eatings):
@@ -557,29 +535,30 @@ class Game_2players():
 
         long_turn_timer.cancel()
         self.view.dehighlight(self.view.currently_highlighted)
-        if (len(bestMove) > 0):
+        if ((not bestMove is None) and len(bestMove) > 0):
             if (not self.is_valid_move(bestMove,start_at)):
-                print (self.view.current_turn + " made and illegal move. LOST!")
+                print (self.view.current_turn + " made an illegal move. LOST!")
                 winner = self.computer if (self.view.current_turn == self.player) else self.player
                 self.winner = winner
                 self.view.endGame()
                 return                
 
-        if (len(bestMove) == 0 or (start_at != None and (bestMove[0] != start_at[0] or bestMove[1] != start_at[1]))):
+        if ((bestMove is None) or len(bestMove) == 0 or (start_at != None and (bestMove[0] != start_at[0] or bestMove[1] != start_at[1]))):
             winner = self.computer if (self.view.current_turn == self.player) else self.player
             self.winner = winner
             self.view.endGame()
             return
         
         if (self.move_no == Consts.MAX_MOVES):
-            print ("Got to " + Consts.MAX_MOVES + ". Draw it is")
+            print ("Got to " + str(Consts.MAX_MOVES) + ". Draw it is")
             self.winner = Consts.DRAW
             self.view.endGame()
             return            
 
         self.last_move = (self.view.current_turn, bestMove[2], bestMove[3])
-        print(self.move_no, " move: ", bestMove)
-        print("---------end turn----------")
+        result = Results(Results.MOVES)
+        result.append(str(bestMove[0]) + ',' + str(bestMove[1]) + ',' + str(bestMove[2]) + ',' + str(bestMove[3]) + ',' + '\n')
+
         if abs(bestMove[2] - bestMove[0]) > 1 or abs(bestMove[3] - bestMove[1]) > 1:
             attacker = [bestMove[0], bestMove[1]]
             self.eat("", bestMove[2], bestMove[3], attacker, [], self.view.current_turn)
@@ -825,21 +804,33 @@ class MyGame:
     def __init__(self):
         root = Tk()
         root.title('Checkers')
+        root.geometry('+0+0')
         the_game = Game_2players(root, "white", "black")
         root.mainloop()
         root.destroy()
         del root
         gc.collect()
         self.winner = the_game.winner
+        result = Results(Results.MOVES)
+        result.append("DONE\n")
 
 cands = Players.find_all("./plugs")
 
+games_comb = []
+#create all combinations
 for cand_a in cands:
     for cand_b in cands:
         if (cand_a == cand_b):
             continue
+        games_comb.append((cand_a, cand_b))
+
+while  len(games_comb) > 0:
+        selected_game = random.randint(0, len(games_comb)-1)
+        cand_a, cand_b = games_comb[selected_game]
+        games_comb.remove((cand_a, cand_b))
         succ = Players.load(cand_a, cand_b)
         if (not succ):
+            print("failed to load game: ", cand_a, " ", cand_b)
             continue
         with suppress(Exception):
              new_game = MyGame()
@@ -847,9 +838,8 @@ for cand_a in cands:
                  print_winner = Consts.DRAW
              else:
                  print_winner =  Players.base2 if (new_game.winner == "white") else Players.base1
-             file_object = open('sample.txt', 'a')
-             file_object.write(Players.base1 + "," + Players.base2 + "," + print_winner + '\n')
-             file_object.close()
+             result = Results(Results.GAMES)
+             result.append(Players.base1 + "," + Players.base2 + "," + print_winner + '\n')
 
 
 
